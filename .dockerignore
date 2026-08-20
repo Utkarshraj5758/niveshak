@@ -1,0 +1,14 @@
+.git
+__pycache__
+*.pyc
+.venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+data
+models
+reports
+tests
+node_modules
+*.duckdb
+*.duckdb.wal
