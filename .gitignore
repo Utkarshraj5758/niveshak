@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+*.duckdb
+*.duckdb.wal
+data/**
+!data/.gitkeep
+models/
+reports/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+node_modules/
+.next/
+sessions/
+*.session
