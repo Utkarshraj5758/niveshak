@@ -1,3 +1,5 @@
+# Anchored (/) excludes so they only match at the build-context root and never inside
+# deploy/, which must ship the trimmed store + model.
 .git
 __pycache__
 *.pyc
@@ -5,10 +7,10 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
-data
-models
-reports
-tests
+/data
+/models
+/reports
+/tests
 node_modules
-*.duckdb
-*.duckdb.wal
+/*.duckdb
+/*.duckdb.wal

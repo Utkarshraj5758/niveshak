@@ -1,0 +1,3 @@
+# Ship the deploy artifacts as binary — never touch line endings on these.
+*.duckdb binary
+*.joblib binary

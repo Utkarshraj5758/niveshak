@@ -10,6 +10,8 @@ COPY requirements-deploy.txt .
 RUN pip install --no-cache-dir -r requirements-deploy.txt
 
 COPY src/ ./src/
+# Committed deploy store (trimmed DuckDB + model artifact) -> full scoring on a bare box.
+COPY deploy/ ./deploy/
 
 ENV PYTHONPATH=/app/src
 ENV PORT=8000

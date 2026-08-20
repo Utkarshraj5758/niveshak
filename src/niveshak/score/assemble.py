@@ -140,11 +140,11 @@ class Scorer:
 
     @classmethod
     def from_paths(cls, db_path: str | Path | None = None,
-                   models_dir: str | Path = "models") -> Scorer:
+                   models_dir: str | Path | None = None) -> Scorer:
         from niveshak.market import db
         from niveshak.parse.tickers import TickerResolver
-        con = db.connect(db_path)
-        model = load_latest_model(models_dir)
+        con = db.connect(db_path or _default_db_path())
+        model = load_latest_model(models_dir or _default_models_dir())
         resolver = TickerResolver.from_duckdb(con)
         return cls(con, model, resolver)
 
@@ -172,6 +172,31 @@ class Scorer:
         from niveshak.parse import parser as P
         tip = P.parse_message(text, source=source, resolver=self.resolver)  # type: ignore[arg-type]
         return self.score_tip(tip)
+
+
+def _default_db_path() -> str:
+    """Prefer the full local store; fall back to the committed deploy store (env overrides)."""
+    import os
+
+    from niveshak.market import config
+    if env := os.environ.get("NIVESHAK_DB_PATH"):
+        return env
+    if config.DB_PATH.exists():
+        return str(config.DB_PATH)
+    deploy = config.REPO_ROOT / "deploy" / "niveshak.duckdb"
+    return str(deploy if deploy.exists() else config.DB_PATH)
+
+
+def _default_models_dir() -> str:
+    import os
+
+    from niveshak.market import config
+    if env := os.environ.get("NIVESHAK_MODELS_DIR"):
+        return env
+    if (config.REPO_ROOT / "models" / "latest.txt").exists():
+        return str(config.REPO_ROOT / "models")
+    deploy = config.REPO_ROOT / "deploy" / "models"
+    return str(deploy if (deploy / "latest.txt").exists() else config.REPO_ROOT / "models")
 
 
 def load_latest_model(models_dir: str | Path = "models") -> Any:
