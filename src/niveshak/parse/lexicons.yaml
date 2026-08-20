@@ -1,0 +1,152 @@
+# Lexicons for the rule parser. Edit these word lists here — they are intentionally NOT
+# hardcoded in Python so the vocabulary can be tuned without touching parser logic.
+#
+# Notes:
+# - Terms are matched case-insensitively. Multi-word phrases match as phrases.
+# - Emoji are real signal in this domain (🚀 🔥) and are kept, never stripped.
+# - Hinglish (Hindi in Latin script) sits alongside English throughout.
+
+# Trade direction the message is pushing.
+direction:
+  long:
+    - buy
+    - long
+    - lelo
+    - le lo
+    - lena
+    - khareedo
+    - kharido
+    - accumulate
+    - add
+    - entry
+    - buy karo
+    - tezi
+    - bullish
+    - breakout
+    - upar
+    - upside
+    - target up
+  short:
+    - sell
+    - short
+    - bech do
+    - becho
+    - bechna
+    - mandi
+    - bearish
+    - short karo
+    - downside
+    - put buy
+
+# Urgency tiers. 'high' includes act-now pressure and hype emoji; 'medium' is softer.
+urgency:
+  high:
+    - now
+    - abhi
+    - turant
+    - aaj hi
+    - sirf aaj
+    - jaldi
+    - fast
+    - hurry
+    - immediately
+    - last chance
+    - dont miss
+    - "don't miss"
+    - miss mat karna
+    - limited time
+    - act now
+    - quick
+    - blast
+    - bumper
+    - "🚀"
+    - "🔥"
+    - "⚡"
+    - "💥"
+    - "🚨"
+  medium:
+    - today
+    - aaj
+    - soon
+    - is week
+    - this week
+    - kal
+    - tomorrow
+    - book fast
+
+# Guarantee / no-risk language. High-signal manipulation tell.
+guarantee:
+  - pakka
+  - pakka profit
+  - sure shot
+  - sureshot
+  - sure-shot
+  - 100%
+  - guaranteed
+  - guarantee
+  - confirm
+  - confirmed
+  - fixed profit
+  - fixed return
+  - jackpot
+  - no loss
+  - loss nahi
+  - loss nai
+  - risk free
+  - riskfree
+  - risk-free
+  - zero risk
+
+# Insider / operator claims.
+insider:
+  - operator
+  - operator support
+  - operator buying
+  - insider
+  - insider news
+  - inside news
+  - inside information
+  - khabar
+  - pukka khabar
+  - big news coming
+  - news aane wali
+  - management tip
+  - source news
+
+# SEBI-mandated / adviser disclosure markers. Presence => disclosure_present = true.
+disclosure:
+  - sebi
+  - sebi registered
+  - sebi reg
+  - disclosure
+  - disclaimer
+  - registered research analyst
+  - research analyst
+  - ra reg
+  - inh0
+  - inh1
+  - inh2
+  - risk disclosure
+  - advisory disclaimer
+
+# Investment horizon keywords -> days. Regex handles explicit "N days/weeks/months".
+horizon:
+  intraday:        # 1 session
+    - intraday
+    - scalping
+    - scalp
+    - aaj ka
+    - today only
+    - btst
+  positional:      # ~5 sessions
+    - positional
+    - swing
+    - is hafte
+  long_term:       # unbounded -> null
+    - long term
+    - longterm
+    - long-term
+    - invest
+    - delivery
+    - years
+    - saal
