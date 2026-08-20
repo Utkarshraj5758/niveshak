@@ -97,3 +97,28 @@ def test_no_contribution_reason_reads_as_advice():
 def test_disclaimer_present():
     rs = A.build_risk_score(_scammy(), 0.0, {})
     assert "not investment advice" in rs.disclaimer.lower()
+
+
+def _burst(is_burst=True):
+    from niveshak.graph.burst import BurstStat
+    return BurstStat("SUZLON", n_channels=5, baseline_mean=0.5, baseline_std=0.5, z=9.0) if is_burst \
+        else BurstStat("SUZLON", n_channels=1, baseline_mean=1.0, baseline_std=1.0, z=0.0)
+
+
+def test_coordination_burst_adds_bounded_points_and_reason():
+    base = A.build_risk_score(_scammy(), 0.0, {})
+    with_burst = A.build_risk_score(_scammy(), 0.0, {}, burst=_burst())
+    assert with_burst.value == base.value + A.COORD_MAX_POINTS   # capped at +15
+    assert any(c.code == "coordination_burst" for c in with_burst.contributions)
+    reason = next(c.reason for c in with_burst.contributions if c.code == "coordination_burst")
+    assert "channels within 48h" in reason
+    # still no advice language
+    for banned in ("buy", "sell", "avoid", "invest"):
+        assert banned not in reason.lower()
+
+
+def test_non_burst_adds_nothing():
+    base = A.build_risk_score(_scammy(), 0.0, {})
+    same = A.build_risk_score(_scammy(), 0.0, {}, burst=_burst(is_burst=False))
+    assert same.value == base.value
+    assert all(c.code != "coordination_burst" for c in same.contributions)

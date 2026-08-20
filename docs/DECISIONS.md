@@ -78,3 +78,33 @@ scrip, the reasons are not.
 **When the ticker can't be resolved,** the market half is unavailable; the score is
 message-only (≤40), confidence is lowered, and a note says so. We never fabricate the market
 half.
+
+---
+
+## D2 — Coordination burst is a bounded overlay, not a fourth weight
+
+**Date:** 2026-08-20 · **Context:** integrating burst detection (Day 3 afternoon).
+
+BUILD_PLAN says to feed the burst signal into "the red-flag half as one more weighted
+contribution." I implemented it instead as a **bounded post-blend overlay** (SPEC §3.7's
+"rule overlays applied after the model, each a fixed bounded adjustment with its own
+reason"), for two reasons:
+
+1. Burst is a **coordination** signal about the ticker across channels — not something the
+   forwarded message itself says. Folding it into the message red-flags would have forced a
+   re-budget of those weights (which currently sum to exactly 1.0, giving a clean 0..1
+   message half and the numbers in D1).
+2. Keeping it separate preserves **both** documented halves (0.6 model / 0.4 message)
+   unchanged, and makes the coordination contribution explicit in the explanation.
+
+**Mechanics.** When a ticker shows a confirmed burst (≥3 distinct channels in 48h **and**
+z ≥ 2 versus its own trailing baseline), we add `min(15, round(5 + 2·z))` points (cap **+15**)
+and a reason ("Being pushed by N channels within 48h — a coordinated spike…"), then clamp to
+100. Example: a scammy tip on SUZLON (market prob ≈ 0 → 40/elevated) with 5 channels pushing
+it in 48h → **55/elevated**, burst as the top reason.
+
+**Dormant without data.** The overlay only fires when the `channel_mentions` archive exists
+(populated by `scripts/backfill_telegram_channels.py`, which needs Telegram *API* credentials
+— my.telegram.org, not the bot token). With no archive, `BurstProvider` returns None and the
+score is unchanged. So the mechanism is built and tested, but contributes nothing until a real
+channel backfill is run. Louvain community attribution stays cut (BUILD_PLAN).

@@ -12,6 +12,7 @@ the scrip's market behaviour — never a buy/sell/hold/avoid call (CLAUDE.md rul
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any, Literal
 
@@ -19,6 +20,7 @@ import joblib
 import pandas as pd
 from pydantic import BaseModel
 
+from niveshak.graph.burst import BurstStat
 from niveshak.parse.tip import Tip
 from niveshak.score.dataset import FEATURE_COLUMNS, LIQUIDITY_ORDER
 from niveshak.score.redflags import score_red_flags
@@ -28,6 +30,9 @@ MODEL_WEIGHT = 0.6
 REDFLAG_WEIGHT = 0.4
 BAND_ELEVATED_MIN = 25   # [0,25) low, [25,60) elevated, [60,100] high
 BAND_HIGH_MIN = 60
+# Coordination overlay (docs/DECISIONS.md D2): a bounded post-blend adjustment, not part of
+# the 0.6/0.4 halves, so the two documented halves stay intact.
+COORD_MAX_POINTS = 15
 
 Band = Literal["low", "elevated", "high"]
 
@@ -86,16 +91,22 @@ def _scrip_factors(feat: dict[str, Any]) -> list[str]:
     return out
 
 
+def _coordination_points(burst: BurstStat) -> int:
+    """Bounded points for a confirmed coordination burst (more channels/z -> more, capped)."""
+    z = burst.z if math.isfinite(burst.z) else 10.0
+    return int(min(COORD_MAX_POINTS, round(5 + 2 * z)))
+
+
 def build_risk_score(
     tip: Tip, model_susceptibility: float, feature_row: dict[str, Any] | None,
+    burst: BurstStat | None = None,
 ) -> RiskScore:
     """Pure blend + banding + explanation. No DB or model access (unit-testable)."""
     prob = max(0.0, min(1.0, float(model_susceptibility)))
     rf = score_red_flags(tip)
 
     market_pts = MODEL_WEIGHT * prob * 100.0
-    value = round(market_pts + REDFLAG_WEIGHT * rf.score * 100.0)
-    value = max(0, min(100, value))
+    value = market_pts + REDFLAG_WEIGHT * rf.score * 100.0
 
     contributions: list[Contribution] = [
         Contribution(code=c.code, reason=c.reason,
@@ -111,9 +122,19 @@ def build_risk_score(
             code="market_susceptibility", reason=reason,
             impact=round(market_pts, 1), half="market"))
 
+    notes: list[str] = []
+    if burst is not None and burst.is_burst:
+        pts = _coordination_points(burst)
+        value += pts
+        contributions.append(Contribution(
+            code="coordination_burst",
+            reason=(f"Being pushed by {burst.n_channels} channels within 48h — "
+                    "a coordinated spike versus this scrip's baseline"),
+            impact=float(pts), half="market"))
+
+    value = max(0, min(100, round(value)))
     top = sorted(contributions, key=lambda c: c.impact, reverse=True)[:3]
 
-    notes: list[str] = []
     if tip.ticker is None:
         notes.append("Ticker could not be resolved — score reflects message signals only.")
         confidence = 0.5
@@ -133,20 +154,22 @@ def build_risk_score(
 class Scorer:
     """Holds the DB connection, model artifact, and resolver; scores text or Tips."""
 
-    def __init__(self, con: Any, model: Any, resolver: Any) -> None:
+    def __init__(self, con: Any, model: Any, resolver: Any, burst_provider: Any = None) -> None:
         self.con = con
         self.model = model
         self.resolver = resolver
+        self.burst_provider = burst_provider
 
     @classmethod
     def from_paths(cls, db_path: str | Path | None = None,
                    models_dir: str | Path | None = None) -> Scorer:
+        from niveshak.graph.burst import BurstProvider
         from niveshak.market import db
         from niveshak.parse.tickers import TickerResolver
         con = db.connect(db_path or _default_db_path())
         model = load_latest_model(models_dir or _default_models_dir())
         resolver = TickerResolver.from_duckdb(con)
-        return cls(con, model, resolver)
+        return cls(con, model, resolver, BurstProvider(con))
 
     def _susceptibility(self, ticker: str | None) -> tuple[float, dict[str, Any] | None]:
         if ticker is None or self.model is None:
@@ -166,7 +189,8 @@ class Scorer:
 
     def score_tip(self, tip: Tip) -> RiskScore:
         prob, feat = self._susceptibility(tip.ticker)
-        return build_risk_score(tip, prob, feat)
+        burst = self.burst_provider.for_ticker(tip.ticker) if self.burst_provider else None
+        return build_risk_score(tip, prob, feat, burst)
 
     def score_text(self, text: str, *, source: str = "manual") -> RiskScore:
         from niveshak.parse import parser as P
